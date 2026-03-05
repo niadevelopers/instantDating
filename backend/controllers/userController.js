@@ -1,5 +1,17 @@
 import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
+import NodeCache from "node-cache";
+
+
+
+
+const cache = new NodeCache({
+  stdTTL: 3600,         
+  checkperiod: 120,      
+  useClones: false,       
+  // maxKeys: 10000       // optional:limit memory usage
+});
+
 
 
 export const getMyProfile = async (req, res) => {
@@ -35,45 +47,119 @@ export const updateProfile = async (req, res) => {
 export const searchUsers = async (req, res) => {
   try {
     const { minAge, maxAge, location, intentions, page = 1 } = req.query;
+    const limit = 8;
+    const pageNumber = parseInt(page);
+    const viewerGender = (req.user?.gender || "other").toLowerCase().trim();
 
-    const limit = 8; // 8 users per page requested
-    const skip = (parseInt(page) - 1) * limit;
+    const cacheKey = `search:${req.user._id}:${viewerGender}:${minAge || ""}:${maxAge || ""}:${location || ""}:${intentions || ""}:${pageNumber}`;
 
-    let query = {
-      "banned.status": false,
-      role: "user",
-    };
-
-    if (location) query.location = location;
-    if (intentions) query.intentions = intentions;
-
-    if (minAge || maxAge) {
-      query.age = {};
-      if (minAge) query.age.$gte = Number(minAge);
-      if (maxAge) query.age.$lte = Number(maxAge);
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
     }
 
-    const totalUsers = await User.countDocuments(query);
+    let genderRatios;
+    if (viewerGender === "male") {
+      genderRatios = { female: 0.85, male: 0.10, other: 0.05 };
+    } else if (viewerGender === "female") {
+      genderRatios = { male: 0.60, female: 0.35, other: 0.05 };
+    } else {
+      genderRatios = { male: 0.50, female: 0.50, other: 0 };
+    }
 
-    const users = await User.find(query)
-      .select("-password")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const femaleCount = Math.round(limit * (genderRatios.female || 0));
+    const maleCount   = Math.round(limit * (genderRatios.male   || 0));
+    const otherCount  = limit - femaleCount - maleCount;
 
-    res.json({
+    let baseQuery = {
+      "banned.status": false,
+      role: "user",
+      _id: { $ne: req.user._id }
+    };
+
+    if (location)    baseQuery.location   = location;
+    if (intentions)  baseQuery.intentions = intentions;
+
+    if (minAge || maxAge) {
+      baseQuery.age = {};
+      if (minAge) baseQuery.age.$gte = Number(minAge);
+      if (maxAge) baseQuery.age.$lte = Number(maxAge);
+    }
+
+    const femaleUsers = femaleCount
+      ? await User.aggregate([
+          { $match: { ...baseQuery, gender: { $regex: /^female$/i } } },
+          { $sample: { size: femaleCount } },
+          {
+            $project: {
+              name: 1,
+              profileImage: 1,
+              intentions: 1,
+              location: 1,
+              age: 1,
+              gender: 1,
+              tier: 1
+            }
+          }
+        ])
+      : [];
+
+    const maleUsers = maleCount
+      ? await User.aggregate([
+          { $match: { ...baseQuery, gender: { $regex: /^male$/i } } },
+          { $sample: { size: maleCount } },
+          {
+            $project: {
+              name: 1,
+              profileImage: 1,
+              intentions: 1,
+              location: 1,
+              age: 1,
+              gender: 1,
+              tier: 1
+            }
+          }
+        ])
+      : [];
+
+    const otherUsers = otherCount
+      ? await User.aggregate([
+          { $match: { ...baseQuery, gender: { $nin: [/^male$/i, /^female$/i] } } },
+          { $sample: { size: otherCount } },
+          {
+            $project: {
+              name: 1,
+              profileImage: 1,
+              intentions: 1,
+              location: 1,
+              age: 1,
+              gender: 1,
+              tier: 1
+            }
+          }
+        ])
+      : [];
+
+    let users = [...femaleUsers, ...maleUsers, ...otherUsers];
+    users = users.sort(() => Math.random() - 0.5);
+
+    const totalUsers = await User.countDocuments(baseQuery);
+
+    const result = {
       users,
-      currentPage: parseInt(page),
+      currentPage: pageNumber,
       totalPages: Math.ceil(totalUsers / limit),
       totalResults: totalUsers
-    });
-    
+    };
+
+    cache.set(cacheKey, result); 
+
+    res.json(result);
   } catch (err) {
     console.error("searchUsers error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const getUserProfile = async (req, res) => {
   try {
