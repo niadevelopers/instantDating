@@ -1,17 +1,18 @@
 export const PLANS = {
   Premium: {
-    amount: 1,
-    dailyLimit: 20,
+    amount: 149,
+    dailyLimit: 10,
     durationDays: 30,
   },
   Legend: {
-    amount: 2,
+    amount: 199,
     weeklyLimit: 100,
     durationDays: 30,
   },
   Elite: {
-    amount: 3,
+    amount: 500,
     unlimited: true,
     durationDays: 3650,
   },
+
 };
