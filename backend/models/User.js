@@ -45,8 +45,34 @@ warnings: [
   banned: {
     status: { type: Boolean, default: false },
     reason: String
+  },
+  
+  // models/User.js  — add at the end of the schema, before }, { timestamps: true }
+
+  // ─── One-time 20 KES genuine user verification ──────────────────────────────
+  hasPaidVerificationFee: {
+    type: Boolean,
+    default: false
+  },
+  verificationPaidAt: {
+    type: Date,
+    default: null
+  },
+  verificationPayment: {
+    type: {
+      reference: String,         // = user._id.toString() we sent
+      phone: String,
+      amount: Number,
+      receipt: String,           // mpesa_receipt or TransactionReceipt
+      webhookBody: mongoose.Schema.Types.Mixed,
+      completedAt: Date
+    },
+    default: null
   }
+  // ────────────────────────────────────────────────────────────────────────────
+
 },
 { timestamps: true });
+
 
 export default mongoose.model("User", userSchema);
