@@ -61,9 +61,6 @@ export const initiateVerificationPayment = async (req, res) => {
     if (response.data.success !== "200") {
       throw new Error(response.data.massage || "STK push initiation failed");
     }
-
-   
-
     res.json({
       msg: "STK push sent — check your phone and complete the 20 KES payment",
       reference, 
@@ -93,8 +90,6 @@ export const verificationWebhook = async (req, res) => {
       console.warn("[VERIF] User not found for reference:", reference);
       return res.sendStatus(200);
     }
-
-    // Idempotency — already paid? just ack
     if (user.hasPaidVerificationFee) {
       console.log("[VERIF] Already paid → skipping update", user._id);
       return res.sendStatus(200);
