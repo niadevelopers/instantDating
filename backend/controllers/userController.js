@@ -2,17 +2,12 @@ import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
 import NodeCache from "node-cache";
 
-
-
-
 const cache = new NodeCache({
   stdTTL: 3600,         
   checkperiod: 120,      
   useClones: false,       
-  // maxKeys: 10000       // optional:limit memory usage
+  // maxKeys: 10000       // optional:limits memory usage
 });
-
-
 
 export const getMyProfile = async (req, res) => {
   try {
@@ -24,7 +19,6 @@ export const getMyProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const updateProfile = async (req, res) => {
   try {
@@ -42,11 +36,6 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-// Updated searchUsers function using $facet to run a single aggregation pipeline
-// This avoids three separate queries, improving performance at scale
-// Added 'email: 1' to the $project stages
-// Everything else (gender ratios, randomization, caching, pagination logic) remains the same
 
 export const searchUsers = async (req, res) => {
   try {
@@ -146,7 +135,6 @@ export const searchUsers = async (req, res) => {
       }
     ]);
 
-    // pipelineResult[0] contains { female: [...], male: [...], other: [...] }
     let users = [
       ...pipelineResult[0].female,
       ...pipelineResult[0].male,
@@ -172,7 +160,6 @@ export const searchUsers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
- 
 
 export const getUserProfile = async (req, res) => {
   try {
@@ -194,7 +181,6 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
-
 export const registerContactClick = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -212,7 +198,6 @@ export const registerContactClick = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 export const uploadProfileImage = async (req, res) => {
   try {
@@ -265,7 +250,6 @@ export const uploadProfileImage = async (req, res) => {
   }
 };
 
-
 export const uploadGalleryImage = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -304,7 +288,6 @@ export const uploadGalleryImage = async (req, res) => {
   }
 };
 
-
 export const deleteGalleryImage = async (req, res) => {
   try {
     const { imageUrl } = req.body;
@@ -337,7 +320,6 @@ export const deleteGalleryImage = async (req, res) => {
   }
 };
 
-
 export const unlockWhatsapp = async (req, res) => {
   try {
     const { targetUserId } = req.body;
@@ -357,7 +339,6 @@ export const unlockWhatsapp = async (req, res) => {
   }
 };
 
-
 function extractPublicId(url) {
   if (!url) return null;
   try {
@@ -370,11 +351,9 @@ function extractPublicId(url) {
       const folderPath = parts.slice(folderIndex, -1).join("/");
       return `${folderPath}/${filename}`;
     }
-
     return filename;
   } catch {
     return null;
   }
 }
-
 
