@@ -2,7 +2,7 @@ import express from "express";
 import auth from "../middleware/authMiddleware.js";
 import tierLimiter from "../middleware/tierLimiter.js";
 import paymentVerify from "../middleware/paymentVerify.js";
-import updateLastActive from "../middleware/updateLastActive.js";
+//import updateLastActive from "../middleware/updateLastActive.js";
 
 import {
   uploadProfile,
@@ -37,7 +37,7 @@ router.put("/update", auth, updateProfile);
 // ────────────────────────────────────────────────
 //   IMPORTANT: Add updateLastActive here
 // ────────────────────────────────────────────────
-router.get("/search", auth, updateLastActive, searchUsers);
+router.get("/search", auth, searchUsers);
 
 router.get("/:id", auth, getUserProfile);
 
@@ -82,3 +82,4 @@ router.post("/verification/webhook", verificationWebhook);
 // ────────────────────────────────────────────────────────────────────────
 
 export default router;
+
