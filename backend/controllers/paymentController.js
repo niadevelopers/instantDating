@@ -46,6 +46,7 @@ export const initiatePayment = async (req, res) => {
       throw new Error("PESAFLUX_API_KEY missing in .env");
     }
 
+    console.log("PesaFlux initiate payload:", JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
       `${PESAFLUX_BASE_URL}/initiatestk`,
@@ -53,6 +54,7 @@ export const initiatePayment = async (req, res) => {
       { headers: { "Content-Type": "application/json" } }
     );
 
+    console.log("PesaFlux initiate response:", response.data);
 
     if (response.data.success !== "200") {
       throw new Error(response.data.massage || "STK initiation failed");
@@ -85,6 +87,7 @@ export const paymentCallback = async (req, res) => {
     if (body.TransactionReference) {
       payment = await Payment.findById(body.TransactionReference);
       if (payment) {
+        console.log('Found payment via TransactionReference:', payment._id);
       }
     }
 
@@ -96,6 +99,7 @@ export const paymentCallback = async (req, res) => {
         ]
       });
       if (payment) {
+        console.log('Found payment via CheckoutRequestID:', payment._id);
       }
     }
 
@@ -104,12 +108,14 @@ export const paymentCallback = async (req, res) => {
         'metadata.merchantRequestID': body.MerchantRequestID
       });
       if (payment) {
+        console.log('Found payment via MerchantRequestID:', payment._id);
       }
     }
 
     if (!payment && body.reference) {
       payment = await Payment.findById(body.reference);
       if (payment) {
+        console.log('Found payment via fallback reference:', payment._id);
       }
     }
 
@@ -124,6 +130,13 @@ export const paymentCallback = async (req, res) => {
       return res.sendStatus(200);
     }
 
+    console.log('Processing payment:', {
+      id: payment._id.toString(),
+      previousStatus: payment.status,
+      plan: payment.plan,
+      amount: payment.amount
+    });
+
     const responseCode = Number(body.ResponseCode ?? -1);
 
     if (responseCode === 0) {
@@ -133,6 +146,7 @@ export const paymentCallback = async (req, res) => {
       payment.metadata = { ...payment.metadata, webhook: body, webhookReceivedAt: new Date() };
       await payment.save();
 
+      console.log('Payment marked as COMPLETED');
 
       const config = PLANS[payment.plan];
       if (!config) {
@@ -155,11 +169,22 @@ export const paymentCallback = async (req, res) => {
 
         await User.findByIdAndUpdate(payment.user, { tier: payment.plan });
 
+        console.log('Subscription activated / updated:', {
+          user: payment.user.toString(),
+          plan: payment.plan,
+          expiry: expiry.toISOString(),
+          subscriptionId: updatedSub?._id?.toString()
+        });
       }
     } else {
       payment.status = "failed";
       payment.metadata = { ...payment.metadata, webhook: body, webhookReceivedAt: new Date() };
       await payment.save();
+
+      console.log('Payment marked as FAILED', {
+        code: responseCode,
+        description: body.ResponseDescription || 'no description'
+      });
     }
 
     res.sendStatus(200);
@@ -183,11 +208,13 @@ export const getPaymentStatus = async (req, res) => {
     }
 
     if (payment.transactionId) {
+      console.log(`[POLLING] Checking status for payment ${paymentId}, txId: ${payment.transactionId}`);
+
       const statusRes = await axios.post(
         `${PESAFLUX_BASE_URL}/transactionstatus`,
         {
           api_key: process.env.PESAFLUX_API_KEY,
-          email: process.env.PESAFLUX_EMAIL || req.user.email || "pesafluxsandbox@gmail.com", // ← REQUIRED! Use .env or fallback
+          email: process.env.PESAFLUX_EMAIL || req.user.email || "jobisaacmaina22@gmail.com", // ← REQUIRED! Use .env or fallback
           transaction_request_id: payment.transactionId,
         },
         {
@@ -196,6 +223,7 @@ export const getPaymentStatus = async (req, res) => {
       );
 
       const data = statusRes.data;
+      console.log(`[POLLING RESPONSE] for ${paymentId}:`, JSON.stringify(data, null, 2));
 
       
       if (data && data.ResultCode === "200" && (data.TransactionCode === "0" || data.TransactionStatus === "Completed")) {
@@ -204,6 +232,8 @@ export const getPaymentStatus = async (req, res) => {
           payment.paymentReference = data.TransactionReceipt || payment.paymentReference;
           payment.metadata = { ...payment.metadata, statusCheck: data, polledAt: new Date() };
           await payment.save();
+
+          console.log(`[POLLING] Marked payment ${paymentId} as completed`);
 
           const config = PLANS[payment.plan];
           if (config) {
@@ -224,11 +254,14 @@ export const getPaymentStatus = async (req, res) => {
 
             await User.findByIdAndUpdate(payment.user, { tier: payment.plan });
 
+            console.log(`[POLLING] Activated ${payment.plan} for user ${payment.user}`);
           }
         }
       } else {
+        console.log(`[POLLING] Not completed yet or error: ResultCode=${data?.ResultCode}, TransactionStatus=${data?.TransactionStatus}`);
       }
     } else {
+      console.log(`[POLLING] No transactionId for payment ${paymentId} - skipping API call`);
     }
 
     res.json({
