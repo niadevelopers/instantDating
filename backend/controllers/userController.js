@@ -43,6 +43,11 @@ export const updateProfile = async (req, res) => {
   }
 };
 
+// Updated searchUsers function using $facet to run a single aggregation pipeline
+// This avoids three separate queries, improving performance at scale
+// Added 'email: 1' to the $project stages
+// Everything else (gender ratios, randomization, caching, pagination logic) remains the same
+
 export const searchUsers = async (req, res) => {
   try {
     const { minAge, maxAge, location, intentions, page = 1 } = req.query;
@@ -85,64 +90,69 @@ export const searchUsers = async (req, res) => {
       if (maxAge) baseQuery.age.$lte = Number(maxAge);
     }
 
-    const femaleUsers = femaleCount
-      ? await User.aggregate([
-          { $match: { ...baseQuery, gender: { $regex: /^female$/i } } },
-          { $sample: { size: femaleCount } },
-          {
-            $project: {
-              email: 1,           // ← ADDED HERE
-              name: 1,
-              profileImage: 1,
-              intentions: 1,
-              location: 1,
-              age: 1,
-              gender: 1,
-              tier: 1
+    const pipelineResult = await User.aggregate([
+      { $match: baseQuery },
+      {
+        $facet: {
+          female: [
+            { $match: { gender: { $regex: /^female$/i } } },
+            { $sample: { size: femaleCount } },
+            {
+              $project: {
+                email: 1,
+                name: 1,
+                profileImage: 1,
+                intentions: 1,
+                location: 1,
+                age: 1,
+                gender: 1,
+                tier: 1
+              }
             }
-          }
-        ])
-      : [];
-
-    const maleUsers = maleCount
-      ? await User.aggregate([
-          { $match: { ...baseQuery, gender: { $regex: /^male$/i } } },
-          { $sample: { size: maleCount } },
-          {
-            $project: {
-              email: 1,           // ← ADDED HERE
-              name: 1,
-              profileImage: 1,
-              intentions: 1,
-              location: 1,
-              age: 1,
-              gender: 1,
-              tier: 1
+          ],
+          male: [
+            { $match: { gender: { $regex: /^male$/i } } },
+            { $sample: { size: maleCount } },
+            {
+              $project: {
+                email: 1,
+                name: 1,
+                profileImage: 1,
+                intentions: 1,
+                location: 1,
+                age: 1,
+                gender: 1,
+                tier: 1
+              }
             }
-          }
-        ])
-      : [];
-
-    const otherUsers = otherCount
-      ? await User.aggregate([
-          { $match: { ...baseQuery, gender: { $nin: [/^male$/i, /^female$/i] } } },
-          { $sample: { size: otherCount } },
-          {
-            $project: {
-              email: 1,           // ← ADDED HERE
-              name: 1,
-              profileImage: 1,
-              intentions: 1,
-              location: 1,
-              age: 1,
-              gender: 1,
-              tier: 1
+          ],
+          other: [
+            { $match: { gender: { $nin: [/^male$/i, /^female$/i] } } },
+            { $sample: { size: otherCount } },
+            {
+              $project: {
+                email: 1,
+                name: 1,
+                profileImage: 1,
+                intentions: 1,
+                location: 1,
+                age: 1,
+                gender: 1,
+                tier: 1
+              }
             }
-          }
-        ])
-      : [];
+          ]
+        }
+      }
+    ]);
 
-    let users = [...femaleUsers, ...maleUsers, ...otherUsers];
+    // pipelineResult[0] contains { female: [...], male: [...], other: [...] }
+    let users = [
+      ...pipelineResult[0].female,
+      ...pipelineResult[0].male,
+      ...pipelineResult[0].other
+    ];
+
     users = users.sort(() => Math.random() - 0.5);
 
     const totalUsers = await User.countDocuments(baseQuery);
@@ -162,6 +172,7 @@ export const searchUsers = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+ 
 
 export const getUserProfile = async (req, res) => {
   try {
@@ -365,4 +376,5 @@ function extractPublicId(url) {
     return null;
   }
 }
+
 
