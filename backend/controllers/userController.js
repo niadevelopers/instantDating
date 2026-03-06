@@ -43,7 +43,6 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-
 export const searchUsers = async (req, res) => {
   try {
     const { minAge, maxAge, location, intentions, page = 1 } = req.query;
@@ -92,6 +91,7 @@ export const searchUsers = async (req, res) => {
           { $sample: { size: femaleCount } },
           {
             $project: {
+              email: 1,           // ← ADDED HERE
               name: 1,
               profileImage: 1,
               intentions: 1,
@@ -110,6 +110,7 @@ export const searchUsers = async (req, res) => {
           { $sample: { size: maleCount } },
           {
             $project: {
+              email: 1,           // ← ADDED HERE
               name: 1,
               profileImage: 1,
               intentions: 1,
@@ -128,6 +129,7 @@ export const searchUsers = async (req, res) => {
           { $sample: { size: otherCount } },
           {
             $project: {
+              email: 1,           // ← ADDED HERE
               name: 1,
               profileImage: 1,
               intentions: 1,
@@ -363,3 +365,4 @@ function extractPublicId(url) {
     return null;
   }
 }
+
