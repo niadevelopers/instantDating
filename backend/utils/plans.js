@@ -1,6 +1,6 @@
 export const PLANS = {
   Premium: {
-    amount: 149,
+    amount: 1,
     dailyLimit: 10,
     durationDays: 30,
   },
@@ -16,3 +16,4 @@ export const PLANS = {
   },
 
 };
+
