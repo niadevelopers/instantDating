@@ -2,6 +2,7 @@ import express from "express";
 import auth from "../middleware/authMiddleware.js";
 import tierLimiter from "../middleware/tierLimiter.js";
 import paymentVerify from "../middleware/paymentVerify.js";
+import updateLastActive from "../middleware/updateLastActive.js";
 
 import {
   uploadProfile,
@@ -30,12 +31,15 @@ import {
 
 const router = express.Router();
 
-
 router.get("/me", auth, getMyProfile);
 router.put("/update", auth, updateProfile);
-router.get("/search", auth, searchUsers);
-router.get("/:id", auth, getUserProfile);
 
+// ────────────────────────────────────────────────
+//   IMPORTANT: Add updateLastActive here
+// ────────────────────────────────────────────────
+router.get("/search", auth, updateLastActive, searchUsers);
+
+router.get("/:id", auth, getUserProfile);
 
 router.post(
   "/upload/profile",
@@ -52,7 +56,6 @@ router.post(
 );
 
 router.delete("/gallery", auth, deleteGalleryImage);
-
 
 router.post(
   "/contact-click", 
@@ -77,6 +80,5 @@ router.get("/verification/status", auth, getVerificationStatus);
 // Webhook from Pesaflux — PUBLIC (no auth), Pesaflux calls this directly
 router.post("/verification/webhook", verificationWebhook);
 // ────────────────────────────────────────────────────────────────────────
-
 
 export default router;
