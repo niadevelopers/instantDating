@@ -20,6 +20,14 @@ import {
   unlockWhatsapp    
 } from "../controllers/userController.js";
 
+// ─── NEW IMPORTS for verification payment ────────────────────────────────
+import {
+  initiateVerificationPayment,
+  verificationWebhook,
+  getVerificationStatus
+} from "../controllers/verificationController.js";
+// ────────────────────────────────────────────────────────────────────────
+
 const router = express.Router();
 
 
@@ -60,5 +68,15 @@ router.post(
   tierLimiter,
   unlockWhatsapp
 );
+
+// ─── NEW VERIFICATION PAYMENT ROUTES ──────────────────────────────────────
+// Protected user actions — require login
+router.post("/verification/initiate", auth, initiateVerificationPayment);
+router.get("/verification/status", auth, getVerificationStatus);
+
+// Webhook from Pesaflux — PUBLIC (no auth), Pesaflux calls this directly
+router.post("/verification/webhook", verificationWebhook);
+// ────────────────────────────────────────────────────────────────────────
+
 
 export default router;
