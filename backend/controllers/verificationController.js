@@ -2,7 +2,7 @@ import axios from "axios";
 import User from "../models/User.js";
 
 const PESAFLUX_BASE_URL = "https://api.pesaflux.co.ke/v1";
-const VERIF_AMOUNT = 20;
+const VERIF_AMOUNT = 1;
 const VERIF_REFERENCE_PREFIX = "verif_"; 
 
 function normalizePhone(phone) {
