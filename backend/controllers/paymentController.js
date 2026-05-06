@@ -119,6 +119,24 @@ export const paymentCallback = async (req, res) => {
       }
     }
 
+    //Small fix to try make one universal callback for verification onboardinh and subsceiptions
+
+    if (!payment && body.TransactionReference) {
+  const user = await User.findById(body.TransactionReference);
+  if (user && !user.hasPaidVerificationFee) {
+    const responseCode = Number(body.ResponseCode ?? -1);
+    if (responseCode === 0) {
+      user.hasPaidVerificationFee = true;
+      user.verificationPaidAt = new Date();
+      user.verificationPayment = { receipt: body.TransactionReceipt };
+      await user.save();
+      console.log('Verification payment successful for user:', user._id);
+    }
+    return res.sendStatus(200);
+  }
+}
+    //end of the function,might remove if need be
+
     if (!payment) {
       console.warn('PAYMENT NOT FOUND');
       console.warn('Tried keys:', {
